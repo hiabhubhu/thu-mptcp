@@ -112,10 +112,10 @@ function test
     ssh root@${SERVERIP} mkdir "${serverpath}/eth1"
     ssh root@${SERVERIP} "echo ${SERVERIP} >> \"${serverpath}/eth1/ip_address\""
     ssh root@${SERVERIP} "echo `date +%s.%N` >> \"${serverpath}/eth1/start_time\""
-
+    # server - create a random file to avoid buffering by the server and Mobile
+    ssh root@${SERVERIP} "dd if=/dev/urandom of=/var/www/blocks/${1} bs=200MB count=1"
     echo "## START SERVER TCPDUMP"
     ssh root@${SERVERIP} tcpdump tcp -U -s 96 -i eth1 -w "${serverpath}/eth1/${SERVERIP}.pcap" &
-    #ssh root@${SERVERIP} "/root/loop.sh -i eth1 -o \"${serverpath}/eth1/throughput.log\"" &
     # client - run tcpdump & loop.sh for each interface
     echo "## START CLIENT TCPDUMP"
     for iface in ${list_iface[@]}; do
@@ -136,6 +136,8 @@ function test
     ssh root@${SERVERIP} pkill tcpdump
     ssh root@${SERVERIP} pkill loop.sh
     ssh root@${SERVERIP} "echo `date +%s.%N` >> \"${serverpath}/eth1/end_time\""
+    # server - remove the temporary file
+    ssh root@${SERVERIP} "rm /var/www/blocks/${1}"
     # client - kill tcpdump & loop.sh
     sudo pkill tcpdump
     sudo pkill loop.sh
@@ -157,14 +159,15 @@ mkdir ${root_dir}
 # get configurable parameters information
 get_iface; get_fl; get_cc; get_buf; get_sch
 # test file rx tx sch cc
-file=${list_fl[ $RANDOM % ${#list_fl[@]} ] }
-cc=${list_cc[ $RANDOM % ${#list_cc[@]} ] }
-buf=${list_buf[ $RANDOM % ${#list_buf[@]} ] }
-sch=${list_sch[ $RANDOM % ${#list_sch[@]} ] }
-# test
 id=1
 while true; do
     clear
+    
+    file=${list_fl[ $RANDOM % ${#list_fl[@]} ] }
+    cc=${list_cc[ $RANDOM % ${#list_cc[@]} ] }
+    buf=${list_buf[ $RANDOM % ${#list_buf[@]} ] }
+    sch=${list_sch[ $RANDOM % ${#list_sch[@]} ] }
+
     echo "### START TEST ${id}"
     echo "file = ${file}  cc = ${cc}  buf = ${buf}  sch = ${sch}"
     echo "[`date +%s.%N`] START TEST #${id} (file=${file} cc=${cc} buf=${buf} sch=${sch})" >> "${root_dir}/.log"
